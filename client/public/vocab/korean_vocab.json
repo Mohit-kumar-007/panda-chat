@@ -1,0 +1,84 @@
+{
+  "categories": [
+    {
+      "name": "Greetings",
+      "emoji": "👋",
+      "words": [
+        { "korean": "안녕하세요", "romanization": "an-nyeong-ha-se-yo", "english": "Hello / Good day" },
+        { "korean": "안녕히 계세요", "romanization": "an-nyeong-hi gye-se-yo", "english": "Goodbye (to one staying)" },
+        { "korean": "감사합니다", "romanization": "gam-sa-ham-ni-da", "english": "Thank you" },
+        { "korean": "죄송합니다", "romanization": "joe-song-ham-ni-da", "english": "I'm sorry" },
+        { "korean": "괜찮아요", "romanization": "gwaen-cha-na-yo", "english": "It's okay / No problem" },
+        { "korean": "처음 뵙겠습니다", "romanization": "cheo-eum boep-get-sum-ni-da", "english": "Nice to meet you" },
+        { "korean": "잘 지내요?", "romanization": "jal ji-nae-yo", "english": "How are you?" },
+        { "korean": "잘 지내요", "romanization": "jal ji-nae-yo", "english": "I'm doing well" },
+        { "korean": "네", "romanization": "ne", "english": "Yes" },
+        { "korean": "아니요", "romanization": "a-ni-yo", "english": "No" }
+      ]
+    },
+    {
+      "name": "Numbers",
+      "emoji": "🔢",
+      "words": [
+        { "korean": "일", "romanization": "il", "english": "One (1)" },
+        { "korean": "이", "romanization": "i", "english": "Two (2)" },
+        { "korean": "삼", "romanization": "sam", "english": "Three (3)" },
+        { "korean": "사", "romanization": "sa", "english": "Four (4)" },
+        { "korean": "오", "romanization": "o", "english": "Five (5)" },
+        { "korean": "육", "romanization": "yuk", "english": "Six (6)" },
+        { "korean": "칠", "romanization": "chil", "english": "Seven (7)" },
+        { "korean": "팔", "romanization": "pal", "english": "Eight (8)" },
+        { "korean": "구", "romanization": "gu", "english": "Nine (9)" },
+        { "korean": "십", "romanization": "sip", "english": "Ten (10)" }
+      ]
+    },
+    {
+      "name": "Food",
+      "emoji": "🍜",
+      "words": [
+        { "korean": "밥", "romanization": "bap", "english": "Rice / Meal" },
+        { "korean": "김치", "romanization": "gim-chi", "english": "Kimchi" },
+        { "korean": "불고기", "romanization": "bul-go-gi", "english": "Bulgogi (BBQ beef)" },
+        { "korean": "비빔밥", "romanization": "bi-bim-bap", "english": "Bibimbap (mixed rice bowl)" },
+        { "korean": "라면", "romanization": "ra-myeon", "english": "Ramen noodles" },
+        { "korean": "삼겹살", "romanization": "sam-gyeop-sal", "english": "Grilled pork belly" },
+        { "korean": "떡볶이", "romanization": "tteok-bok-ki", "english": "Spicy rice cakes" },
+        { "korean": "순두부찌개", "romanization": "sun-du-bu-jji-gae", "english": "Soft tofu stew" },
+        { "korean": "물", "romanization": "mul", "english": "Water" },
+        { "korean": "커피", "romanization": "keo-pi", "english": "Coffee" }
+      ]
+    },
+    {
+      "name": "Colors",
+      "emoji": "🎨",
+      "words": [
+        { "korean": "빨간색", "romanization": "ppal-gan-saek", "english": "Red" },
+        { "korean": "파란색", "romanization": "pa-ran-saek", "english": "Blue" },
+        { "korean": "초록색", "romanization": "cho-rok-saek", "english": "Green" },
+        { "korean": "노란색", "romanization": "no-ran-saek", "english": "Yellow" },
+        { "korean": "검은색", "romanization": "geo-meun-saek", "english": "Black" },
+        { "korean": "흰색", "romanization": "huin-saek", "english": "White" },
+        { "korean": "분홍색", "romanization": "bun-hong-saek", "english": "Pink" },
+        { "korean": "보라색", "romanization": "bo-ra-saek", "english": "Purple" },
+        { "korean": "주황색", "romanization": "ju-hwang-saek", "english": "Orange" },
+        { "korean": "회색", "romanization": "hoe-saek", "english": "Gray" }
+      ]
+    },
+    {
+      "name": "Days & Phrases",
+      "emoji": "📅",
+      "words": [
+        { "korean": "월요일", "romanization": "wol-yo-il", "english": "Monday" },
+        { "korean": "화요일", "romanization": "hwa-yo-il", "english": "Tuesday" },
+        { "korean": "수요일", "romanization": "su-yo-il", "english": "Wednesday" },
+        { "korean": "목요일", "romanization": "mok-yo-il", "english": "Thursday" },
+        { "korean": "금요일", "romanization": "geum-yo-il", "english": "Friday" },
+        { "korean": "토요일", "romanization": "to-yo-il", "english": "Saturday" },
+        { "korean": "일요일", "romanization": "il-yo-il", "english": "Sunday" },
+        { "korean": "사랑해요", "romanization": "sa-rang-hae-yo", "english": "I love you" },
+        { "korean": "화이팅!", "romanization": "hwa-i-ting", "english": "Fighting! / You can do it!" },
+        { "korean": "맛있어요", "romanization": "ma-si-sseo-yo", "english": "It's delicious!" }
+      ]
+    }
+  ]
+}

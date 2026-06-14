@@ -1,0 +1,18 @@
+{
+  "name": "Panda Korean",
+  "short_name": "PandaKR",
+  "description": "Your personal Korean tutor — always learning!",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF9F0",
+  "theme_color": "#FFF9F0",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/panda-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
