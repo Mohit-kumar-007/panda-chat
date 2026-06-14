@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
 
 /**
  * ChatZone — Main chat container with keyboard-aware layout.
- * Uses visualViewport API to handle mobile keyboard.
+ * Height is handled via CSS dvh units which automatically account
+ * for the mobile keyboard — no JS resize needed.
  */
 const ChatZone = ({
   messages,
@@ -18,26 +19,6 @@ const ChatZone = ({
   roomCode,
 }) => {
   const containerRef = useRef(null);
-
-  // Handle keyboard opening on mobile (visualViewport API)
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-
-    const handleResize = () => {
-      if (containerRef.current) {
-        containerRef.current.style.height = `${vv.height}px`;
-      }
-    };
-
-    vv.addEventListener('resize', handleResize);
-    vv.addEventListener('scroll', handleResize);
-
-    return () => {
-      vv.removeEventListener('resize', handleResize);
-      vv.removeEventListener('scroll', handleResize);
-    };
-  }, []);
 
   return (
     <div

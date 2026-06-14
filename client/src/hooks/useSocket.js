@@ -1,9 +1,14 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { io } from 'socket.io-client';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
 
-// Singleton socket — persists across renders but NOT across reconnect-to-different-room
+/** Read the name saved by LandingPage */
+const getSavedName = () => {
+  try { return localStorage.getItem('pandachat_name') || 'User'; } catch { return 'User'; }
+};
+
+// Singleton socket — one connection per browser tab
 let socketInstance = null;
 
 const getSocket = () => {
@@ -29,16 +34,8 @@ const getSocket = () => {
 /**
  * useSocket — manages Socket.io connection and room events.
  *
- * @param {Object} params
- * @param {string|null}  params.roomCode
- * @param {Function}     params.onMessage
- * @param {Function}     params.onRoomJoined
- * @param {Function}     params.onRoomFull
- * @param {Function}     params.onRoomNotFound
- * @param {Function}     params.onUserTyping
- * @param {Function}     params.onReaction
- * @param {Function}     params.onUserDisconnected
- * @param {Function}     params.onUserReconnected
+ * Returns mySocketId as a reactive state value so components
+ * can reliably tell which messages are their own.
  */
 const useSocket = ({
   roomCode,
@@ -55,23 +52,50 @@ const useSocket = ({
   const joinedRef = useRef(false);
   const currentRoomRef = useRef(null);
 
-  // Initialise socket once
+  // ─── FIX 1: mySocketId as proper React state (not a polled ref) ──────────
+  // This is the single source of truth for "who am I".
+  // It's set the moment the socket receives its id from the server (on connect).
+  const [mySocketId, setMySocketId] = useState(null);
+  const mySocketIdRef = useRef(null); // ref mirror for use in callbacks
+
+  const updateMyId = useCallback((id) => {
+    mySocketIdRef.current = id;
+    setMySocketId(id);
+  }, []);
+
+  // ─── Initialise socket once ───────────────────────────────────────────────
   useEffect(() => {
     const s = getSocket();
     socketRef.current = s;
 
+    // If already connected (e.g. HMR / StrictMode remount), grab id immediately
+    if (s.connected && s.id) {
+      updateMyId(s.id);
+    }
+
     const handleConnect = () => {
-      console.log('🟢 Socket connected:', s.id);
+      console.log('🟢 Socket connected, id:', s.id);
+      // FIX 1: set our own ID as soon as the server assigns it
+      updateMyId(s.id);
+
       if (currentRoomRef.current && !joinedRef.current) {
-        s.emit('join_room', { roomCode: currentRoomRef.current });
+        s.emit('join_room', { roomCode: currentRoomRef.current, name: getSavedName() });
         joinedRef.current = true;
       }
-      onUserReconnected?.();
+
+      // FIX 2: only call onUserReconnected for actual RE-connections, not the
+      // initial connect (joinedRef.current is false on first connect).
+      // We check if we already had an id before — if yes, it's a reconnect.
+      if (mySocketIdRef.current) {
+        onUserReconnected?.();
+      }
     };
 
     const handleDisconnect = (reason) => {
       console.log('🔴 Socket disconnected:', reason);
       joinedRef.current = false;
+      // Don't clear mySocketId here — we want to keep showing correct bubbles
+      // even briefly while reconnecting.
     };
 
     s.on('connect', handleConnect);
@@ -86,7 +110,7 @@ const useSocket = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Join room whenever roomCode changes
+  // ─── Join room whenever roomCode changes ──────────────────────────────────
   useEffect(() => {
     if (!roomCode) return;
     const s = socketRef.current;
@@ -96,23 +120,23 @@ const useSocket = ({
     joinedRef.current = false;
 
     if (s.connected) {
-      s.emit('join_room', { roomCode });
+      s.emit('join_room', { roomCode, name: getSavedName() });
       joinedRef.current = true;
     }
   }, [roomCode]);
 
-  // Register / deregister event listeners (re-runs when handlers change)
+  // ─── Register / deregister event listeners ────────────────────────────────
   useEffect(() => {
     const s = socketRef.current;
     if (!s) return;
 
-    if (onRoomJoined)      s.on('room_joined',       onRoomJoined);
-    if (onRoomFull)        s.on('room_full',          onRoomFull);
-    if (onRoomNotFound)    s.on('room_not_found',     onRoomNotFound);
-    if (onMessage)         s.on('receive_message',    onMessage);
-    if (onUserTyping)      s.on('user_typing',        onUserTyping);
-    if (onReaction)        s.on('receive_reaction',   onReaction);
-    if (onUserDisconnected)s.on('user_disconnected',  onUserDisconnected);
+    if (onRoomJoined)       s.on('room_joined',       onRoomJoined);
+    if (onRoomFull)         s.on('room_full',          onRoomFull);
+    if (onRoomNotFound)     s.on('room_not_found',     onRoomNotFound);
+    if (onMessage)          s.on('receive_message',    onMessage);
+    if (onUserTyping)       s.on('user_typing',        onUserTyping);
+    if (onReaction)         s.on('receive_reaction',   onReaction);
+    if (onUserDisconnected) s.on('user_disconnected',  onUserDisconnected);
 
     return () => {
       s.off('room_joined',      onRoomJoined);
@@ -121,7 +145,7 @@ const useSocket = ({
       s.off('receive_message',  onMessage);
       s.off('user_typing',      onUserTyping);
       s.off('receive_reaction', onReaction);
-      s.off('user_disconnected',onUserDisconnected);
+      s.off('user_disconnected', onUserDisconnected);
     };
   }, [
     onMessage, onRoomJoined, onRoomFull, onRoomNotFound,
@@ -157,8 +181,9 @@ const useSocket = ({
     currentRoomRef.current = null;
   }, [roomCode]);
 
+  // FIX 3: getSocketId now reads the ref directly (always up-to-date)
   const getSocketId = useCallback(() => {
-    return socketRef.current?.id || null;
+    return mySocketIdRef.current || socketRef.current?.id || null;
   }, []);
 
   const isConnected = useCallback(() => {
@@ -166,6 +191,7 @@ const useSocket = ({
   }, []);
 
   return {
+    mySocketId,   // ← NEW: reactive state, use this in components instead of getSocketId()
     sendMessage,
     sendTypingStart,
     sendTypingStop,

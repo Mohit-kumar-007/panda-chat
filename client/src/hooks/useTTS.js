@@ -2,10 +2,10 @@ import { useCallback, useRef, useState, useEffect } from 'react';
 
 /**
  * useTTS — Korean Text-to-Speech using Web Speech API.
- * Fixes:
- *  - Voices are loaded async; we wait for voiceschanged before speaking.
- *  - synth is stored in a ref (not a const) so it is always fresh.
- *  - Stale closure bug fixed: ttsEnabled accessed via ref inside speak().
+ *
+ * Mobile fix: iOS Safari and Android Chrome block speechSynthesis.speak()
+ * until the user has interacted with the page. We "unlock" it by speaking
+ * a silent utterance on the first user tap anywhere on the page.
  */
 const useTTS = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -22,13 +22,59 @@ const useTTS = () => {
   const ttsEnabledRef = useRef(ttsEnabled);   // always-current ref
   const utteranceRef = useRef(null);
   const pendingRef = useRef(null);             // speak call waiting for voices
+  const unlockedRef = useRef(false);           // whether audio is unlocked on mobile
 
   // Keep ref in sync
   useEffect(() => {
     ttsEnabledRef.current = ttsEnabled;
   }, [ttsEnabled]);
 
-  // Initialise speechSynthesis and wait for voices to load
+  // ─── Unlock audio on first user gesture (critical for mobile) ─────────────
+  // iOS Safari and Android Chrome require a user gesture before any audio.
+  // We speak a zero-length utterance on the first tap to "unlock" the engine.
+  useEffect(() => {
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+
+    const unlock = () => {
+      if (unlockedRef.current) return;
+      unlockedRef.current = true;
+
+      // Speak a blank utterance — this satisfies the browser's gesture requirement
+      try {
+        const silent = new SpeechSynthesisUtterance('');
+        silent.volume = 0;
+        silent.rate = 10; // make it instant
+        synth.speak(silent);
+      } catch (_) {}
+
+      // If there was already a pending speak, fire it now
+      if (pendingRef.current) {
+        const { text, callbacks } = pendingRef.current;
+        pendingRef.current = null;
+        // Small delay to let the unlock settle
+        setTimeout(() => doSpeak(synth, text, callbacks), 100);
+      }
+
+      document.removeEventListener('touchstart', unlock, true);
+      document.removeEventListener('click', unlock, true);
+      document.removeEventListener('keydown', unlock, true);
+    };
+
+    // Listen on capture phase so we catch the gesture as early as possible
+    document.addEventListener('touchstart', unlock, { once: true, capture: true });
+    document.addEventListener('click', unlock, { once: true, capture: true });
+    document.addEventListener('keydown', unlock, { once: true, capture: true });
+
+    return () => {
+      document.removeEventListener('touchstart', unlock, true);
+      document.removeEventListener('click', unlock, true);
+      document.removeEventListener('keydown', unlock, true);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ─── Initialise speechSynthesis and wait for voices ───────────────────────
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const synth = window.speechSynthesis;
@@ -39,7 +85,7 @@ const useTTS = () => {
       if (voices.length > 0) {
         setVoicesReady(true);
         // If there was a pending speak call, fire it now
-        if (pendingRef.current) {
+        if (pendingRef.current && unlockedRef.current) {
           const { text, callbacks } = pendingRef.current;
           pendingRef.current = null;
           doSpeak(synth, text, callbacks);
@@ -71,9 +117,10 @@ const useTTS = () => {
     );
   };
 
-  /** Internal speak — assumes synth is ready */
+  /** Internal speak — assumes synth is ready and audio is unlocked */
   const doSpeak = (synth, text, { onStart, onEnd } = {}) => {
-    synth.cancel(); // stop any current speech
+    // Chrome bug: synth gets stuck after ~15 utterances without this
+    synth.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'ko-KR';
@@ -114,6 +161,12 @@ const useTTS = () => {
     const synth = synthRef.current;
     if (!synth) {
       callbacks.onEnd?.();
+      return;
+    }
+
+    // If audio hasn't been unlocked yet (no user gesture), queue and wait
+    if (!unlockedRef.current) {
+      pendingRef.current = { text, callbacks };
       return;
     }
 

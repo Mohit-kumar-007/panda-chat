@@ -19,7 +19,6 @@ const ChatPage = () => {
   const navigate = useNavigate();
 
   const [messages, setMessages] = useState([]);
-  const [socketId, setSocketId] = useState(null);
   const [expression, setExpression] = useState('idle');
   const [isTypingIndicator, setIsTypingIndicator] = useState(false);
   const [friendConnected, setFriendConnected] = useState(false);
@@ -30,15 +29,12 @@ const ChatPage = () => {
   const typingTimerRef = useRef(null);
   const inactivityTimerRef = useRef(null);
   const expressionTimerRef = useRef(null);
-  const socketIdRef = useRef(null); // Keep socketId in ref for callbacks
+
+  // mySocketIdRef — always holds our own socket ID for use inside callbacks
+  // (mySocketId state is the reactive version for rendering)
+  const mySocketIdRef = useRef(null);
 
   const { speak, isSpeaking, ttsEnabled, toggleTTS } = useTTS();
-
-  // Update socketId ref whenever state changes
-  const updateSocketId = useCallback((id) => {
-    socketIdRef.current = id;
-    setSocketId(id);
-  }, []);
 
   // Reset inactivity timer — uses ref, no stale closure
   const resetInactivity = useCallback(() => {
@@ -62,7 +58,6 @@ const ChatPage = () => {
   const handleRoomJoined = useCallback(({ success, history }) => {
     if (!success) return;
     setIsConnected(true);
-    // socketId is set via polling useEffect below
     if (history && history.length > 0) {
       setMessages(history);
     }
@@ -87,7 +82,8 @@ const ChatPage = () => {
     });
     resetInactivity();
 
-    const isFromFriend = msg.senderId !== socketIdRef.current;
+    // Use the ref so this callback never has a stale socket ID
+    const isFromFriend = msg.senderId !== mySocketIdRef.current;
 
     if (isFromFriend) {
       // Only speak if korean field actually contains Hangul characters
@@ -99,7 +95,6 @@ const ChatPage = () => {
         textToSpeak = msg.korean;
       } else {
         // ⚠️ No Korean text available (translation pending or failed)
-        // Speak a generic Korean notification so TTS is always in Korean
         textToSpeak = '새 메시지가 왔어요'; // "A new message arrived"
       }
 
@@ -155,12 +150,12 @@ const ChatPage = () => {
   }, [setExpressionFor]);
 
   const {
+    mySocketId,
     sendMessage,
     sendTypingStart,
     sendTypingStop,
     sendReaction,
     leaveRoom,
-    getSocketId,
   } = useSocket({
     roomCode,
     onMessage: handleMessage,
@@ -173,24 +168,17 @@ const ChatPage = () => {
     onUserReconnected: handleUserReconnected,
   });
 
-  // Poll for socket ID until available
+  // Keep ref in sync with reactive state so callbacks always have latest ID
   useEffect(() => {
-    const id = setInterval(() => {
-      const sid = getSocketId();
-      if (sid && sid !== socketIdRef.current) {
-        updateSocketId(sid);
-        clearInterval(id);
-      }
-    }, 200);
-    return () => clearInterval(id);
-  }, [getSocketId, updateSocketId]);
+    if (mySocketId) mySocketIdRef.current = mySocketId;
+  }, [mySocketId]);
 
   // Track friend presence from messages
   useEffect(() => {
-    if (!socketIdRef.current) return;
-    const hasOtherMessages = messages.some((m) => m.senderId !== socketIdRef.current);
+    if (!mySocketId) return;
+    const hasOtherMessages = messages.some((m) => m.senderId !== mySocketId);
     if (hasOtherMessages) setFriendConnected(true);
-  }, [messages]);
+  }, [messages, mySocketId]);
 
   // Handle send
   const handleSend = useCallback((text) => {
@@ -271,7 +259,7 @@ const ChatPage = () => {
           }}
           className="md:flex-row"
         >
-          {/* Panda Zone */}
+          {/* Panda Zone — hidden during panic but stays mounted */}
           <motion.div
             style={{
               height: '50vh',
@@ -279,8 +267,11 @@ const ChatPage = () => {
               overflow: 'hidden',
             }}
             className="md:h-full md:w-[40%]"
-            animate={{ opacity: isPanicMode ? 0 : 1 }}
-            transition={{ duration: 0.3 }}
+            animate={{
+              opacity: isPanicMode ? 0 : 1,
+              // keep layout space — don't collapse height, just hide visually
+            }}
+            transition={{ duration: 0.25 }}
           >
             <PandaZone
               expression={expression}
@@ -293,16 +284,19 @@ const ChatPage = () => {
             />
           </motion.div>
 
-          {/* Chat Zone */}
+          {/* Chat Zone — slides down + fades out during panic */}
           <motion.div
             style={{ flex: 1, overflow: 'hidden' }}
             className="md:w-[60%]"
-            animate={{ y: isPanicMode ? '100%' : 0 }}
+            animate={{
+              opacity: isPanicMode ? 0 : 1,
+              y: isPanicMode ? 40 : 0,
+            }}
             transition={{ type: 'spring', stiffness: 300, damping: 35 }}
           >
             <ChatZone
               messages={messages}
-              socketId={socketId}
+              socketId={mySocketId}
               onSend={handleSend}
               onTypingStart={sendTypingStart}
               onTypingStop={sendTypingStop}

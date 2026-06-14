@@ -33,6 +33,11 @@ const PandaZone = ({
   const [showPhrase, setShowPhrase] = useState(false);
   const phraseTimer = useRef(null);
 
+  // Read own name from localStorage (set on LandingPage)
+  const myName = (() => {
+    try { return localStorage.getItem('pandachat_name') || ''; } catch { return ''; }
+  })();
+
   // ─── Double-tap → panic ────────────────────────────────────────────
   const handleTap = useCallback(() => {
     const now = Date.now();
@@ -161,7 +166,7 @@ const PandaZone = ({
             animate={friendConnected ? { scale: [1, 1.5, 1], opacity: [1, 0.5, 1] } : {}}
             transition={{ duration: 1.5, repeat: Infinity }}
           />
-          {friendConnected ? '友達 (Friend)' : 'Waiting...'}
+          {friendConnected ? '友達ち Online' : 'Waiting...'}
         </motion.div>
 
         {/* TTS toggle */}
@@ -295,6 +300,11 @@ const PandaZone = ({
 
       {/* ── Branding ─────────────────────────────────────────────────── */}
       <div style={{ paddingBottom: '10px', textAlign: 'center', zIndex: 5 }}>
+        {myName && (
+          <p style={{ fontSize: '12px', color: '#64748b', fontWeight: 800, marginBottom: '2px' }}>
+            🐼 {myName}
+          </p>
+        )}
         <motion.p
           style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, letterSpacing: '0.12em' }}
           animate={{ opacity: [0.6, 1, 0.6] }}

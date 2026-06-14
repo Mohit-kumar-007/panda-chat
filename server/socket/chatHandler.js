@@ -12,6 +12,7 @@ try {
 
 // In-memory room store (fallback when DB is unavailable)
 const inMemoryRooms = new Map(); // roomCode -> { users: Set<socketId>, messages: [] }
+const socketNames = new Map();   // socketId -> displayName
 
 const getOrCreateMemRoom = (roomCode) => {
   if (!inMemoryRooms.has(roomCode)) {
@@ -29,9 +30,16 @@ const chatHandler = (io) => {
     console.log(`🔌 Socket connected: ${socket.id}`);
 
     // ─── JOIN ROOM ────────────────────────────────────────────────────────────
-    socket.on('join_room', async ({ roomCode }) => {
+    socket.on('join_room', async ({ roomCode, name }) => {
       if (!roomCode) return;
       const code = roomCode.toUpperCase();
+
+      // Store display name for this socket
+      if (name && typeof name === 'string') {
+        socketNames.set(socket.id, name.trim().slice(0, 20) || 'User');
+      } else if (!socketNames.has(socket.id)) {
+        socketNames.set(socket.id, 'User');
+      }
 
       // If DB is available, verify room exists (for join flow)
       if (Room) {
@@ -74,6 +82,7 @@ const chatHandler = (io) => {
             korean: m.koreanText,
             timestamp: m.timestamp,
             senderId: m.senderId,
+            senderName: m.senderName || 'User',
             reactions: m.reactions || [],
           }));
         } catch (err) {
@@ -121,6 +130,7 @@ const chatHandler = (io) => {
 
       const timestamp = new Date();
       let messageId = `msg_${Date.now()}_${socket.id.slice(0, 4)}`;
+      const senderName = socketNames.get(socket.id) || 'User';
 
       // Save to DB
       if (Message) {
@@ -129,6 +139,7 @@ const chatHandler = (io) => {
           const msg = new Message({
             roomCode: code,
             senderId: socket.id,
+            senderName,
             originalText: encryptedOriginal,
             koreanText,
             timestamp,
@@ -149,6 +160,7 @@ const chatHandler = (io) => {
         korean: koreanText,
         timestamp,
         senderId: socket.id,
+        senderName,
         reactions: [],
       };
       memRoom.messages.push(messagePayload);
@@ -206,6 +218,7 @@ const chatHandler = (io) => {
     // ─── DISCONNECT ───────────────────────────────────────────────────────────
     socket.on('disconnect', async () => {
       console.log(`🔌 Socket disconnected: ${socket.id}`);
+      socketNames.delete(socket.id);
       if (socket.roomCode) {
         await handleDisconnect(socket, io, socket.roomCode);
       }

@@ -22,7 +22,7 @@ const MessageBubble = ({ message, isOwn, onReaction, socketId }) => {
   const countdownTimerRef = useRef(null);
   const bubbleRef = useRef(null);
 
-  const { id, original, korean, timestamp, reactions = [] } = message;
+  const { id, original, korean, timestamp, reactions = [], senderName } = message;
 
   // Schedule Korean conversion
   useEffect(() => {
@@ -88,6 +88,19 @@ const MessageBubble = ({ message, isOwn, onReaction, socketId }) => {
     <div
       className={`flex flex-col mb-3 max-w-[80%] ${isOwn ? 'items-end self-end' : 'items-start self-start'}`}
     >
+      {/* Sender name label — only shown for friend's messages */}
+      {!isOwn && senderName && (
+        <span style={{
+          fontSize: '11px',
+          fontWeight: 700,
+          color: '#94a3b8',
+          marginBottom: '3px',
+          marginLeft: '6px',
+          letterSpacing: '0.02em',
+        }}>
+          {senderName}
+        </span>
+      )}
       <div className="relative">
         {/* Sticker picker */}
         <AnimatePresence>

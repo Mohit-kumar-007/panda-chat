@@ -325,9 +325,21 @@ body {
 }
 
 /* ─── MOBILE VIEWPORT FIX ────────────────────────────────────────────── */
+/* dvh = dynamic viewport height — shrinks when keyboard opens on mobile  */
+/* This prevents the layout from being squished / disappearing             */
 .viewport-height {
-  height: 100vh;
-  height: 100dvh;
+  height: 100vh;        /* fallback for very old browsers */
+  height: 100svh;       /* svh = small viewport height (excludes browser UI) */
+  height: 100dvh;       /* dvh = dynamic (best, shrinks with keyboard) */
+}
+
+/* On mobile, prevent the body/html from scrolling so the layout stays fixed */
+@media (max-width: 768px) {
+  html, body {
+    position: fixed;
+    width: 100%;
+    overflow: hidden;
+  }
 }
 
 /* ─── UTILITY CLASSES ────────────────────────────────────────────────── */

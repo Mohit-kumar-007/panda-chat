@@ -7,27 +7,72 @@ import { isValidRoomCode, generateRoomCode } from '../utils/roomCode';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
 
+// Persist name in localStorage so they don't re-enter every visit
+const getSavedName = () => {
+  try { return localStorage.getItem('pandachat_name') || ''; } catch { return ''; }
+};
+const saveName = (name) => {
+  try { localStorage.setItem('pandachat_name', name); } catch {}
+};
+
 /**
- * LandingPage — Entry screen with room code input.
- * Users can create a new room or join an existing one.
+ * LandingPage — Entry screen.
+ * Step 1: Enter your name.
+ * Step 2: Join an existing room or create a new one.
  */
 const LandingPage = () => {
   const navigate = useNavigate();
+
+  // ─── Step: 'name' | 'join' | 'created' ───────────────────────────────────
+  const [step, setStep] = useState(() => getSavedName() ? 'join' : 'name');
+  const [userName, setUserName] = useState(getSavedName);
+  const [nameInput, setNameInput] = useState(getSavedName);
+  const [nameError, setNameError] = useState('');
+
   const [roomCode, setRoomCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [mode, setMode] = useState('join'); // 'join' | 'created'
   const [createdCode, setCreatedCode] = useState('');
   const [copied, setCopied] = useState(false);
   const [pandaExpression, setPandaExpression] = useState('idle');
 
+  // ─── Step 1: Name submission ──────────────────────────────────────────────
+  const handleNameSubmit = useCallback(() => {
+    const trimmed = nameInput.trim();
+    if (!trimmed) {
+      setNameError('Please enter your name 😊');
+      setPandaExpression('surprised');
+      setTimeout(() => setPandaExpression('idle'), 1500);
+      return;
+    }
+    if (trimmed.length < 2) {
+      setNameError('Name must be at least 2 characters');
+      setPandaExpression('surprised');
+      setTimeout(() => setPandaExpression('idle'), 1500);
+      return;
+    }
+    if (trimmed.length > 20) {
+      setNameError('Name must be 20 characters or less');
+      return;
+    }
+    saveName(trimmed);
+    setUserName(trimmed);
+    setNameError('');
+    setPandaExpression('happy');
+    setTimeout(() => {
+      setPandaExpression('idle');
+      setStep('join');
+    }, 600);
+  }, [nameInput]);
+
+  // ─── Room code input ──────────────────────────────────────────────────────
   const handleCodeChange = (e) => {
-    // Strip spaces, force uppercase, max 6 chars
     const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
     setRoomCode(val);
     setError('');
   };
 
+  // ─── Join room ────────────────────────────────────────────────────────────
   const handleJoin = useCallback(async () => {
     const code = roomCode.trim().toUpperCase();
     if (!isValidRoomCode(code)) {
@@ -42,9 +87,7 @@ const LandingPage = () => {
     setPandaExpression('thinking');
 
     try {
-      const res = await axios.get(`${SERVER_URL}/api/room/${code}/exists`, {
-        timeout: 5000,
-      });
+      const res = await axios.get(`${SERVER_URL}/api/room/${code}/exists`, { timeout: 5000 });
       if (!res.data.exists) {
         setError('Room not found. Check your code or generate a new one.');
         setPandaExpression('surprised');
@@ -58,7 +101,7 @@ const LandingPage = () => {
         setTimeout(() => navigate(`/chat/${code}`), 400);
       }
     } catch {
-      // Server offline — navigate anyway; socket will report errors
+      // Server offline — navigate anyway
       setPandaExpression('happy');
       setTimeout(() => navigate(`/chat/${code}`), 400);
     } finally {
@@ -66,6 +109,7 @@ const LandingPage = () => {
     }
   }, [roomCode, navigate]);
 
+  // ─── Create room ──────────────────────────────────────────────────────────
   const handleCreate = useCallback(async () => {
     setIsLoading(true);
     setError('');
@@ -75,24 +119,22 @@ const LandingPage = () => {
       const res = await axios.post(`${SERVER_URL}/api/room/create`, {}, { timeout: 5000 });
       const code = res.data.roomCode;
       setCreatedCode(code);
-      setMode('created');
+      setStep('created');
       setPandaExpression('happy');
     } catch {
-      // Fallback: client-side code, navigate directly
       const code = generateRoomCode();
       setCreatedCode(code);
-      setMode('created');
+      setStep('created');
       setPandaExpression('happy');
     } finally {
       setIsLoading(false);
     }
-  }, [navigate]);
+  }, []);
 
   const handleCopyCode = useCallback(() => {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(createdCode).catch(() => {});
     } else {
-      // Fallback for non-HTTPS
       const el = document.createElement('textarea');
       el.value = createdCode;
       document.body.appendChild(el);
@@ -118,7 +160,6 @@ const LandingPage = () => {
     show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 28 } },
   };
 
-  // Display code with space in middle: "ABC DEF"
   const displayCode = roomCode
     ? `${roomCode.slice(0, 3)}${roomCode.length > 3 ? ' ' + roomCode.slice(3) : ''}`
     : '';
@@ -182,7 +223,9 @@ const LandingPage = () => {
             🐼 Panda Korean
           </h1>
           <p style={{ color: '#64748b', fontWeight: 600, marginTop: '6px', fontSize: '14px' }}>
-            Your personal Korean tutor — always learning!
+            {step === 'name'
+              ? "Let's get started — what's your name?"
+              : `Welcome back, ${userName}! 🌸`}
           </p>
         </motion.div>
 
@@ -213,8 +256,72 @@ const LandingPage = () => {
         <motion.div variants={itemVariants} className="glass-card" style={{ padding: '24px', marginBottom: '16px' }}>
           <AnimatePresence mode="wait">
 
-            {/* JOIN mode */}
-            {mode === 'join' && (
+            {/* ── STEP 1: Name entry ─────────────────────────────────── */}
+            {step === 'name' && (
+              <motion.div
+                key="name"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.2 }}
+              >
+                <p style={{
+                  textAlign: 'center', fontSize: '11px', fontWeight: 700,
+                  color: '#94a3b8', letterSpacing: '0.1em', textTransform: 'uppercase',
+                  marginBottom: '8px',
+                }}>
+                  Your Name
+                </p>
+                <p style={{ textAlign: 'center', fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>
+                  This is how your friend will see you in chat 💬
+                </p>
+
+                <input
+                  id="name-input"
+                  type="text"
+                  value={nameInput}
+                  onChange={(e) => {
+                    setNameInput(e.target.value.slice(0, 20));
+                    setNameError('');
+                  }}
+                  placeholder="e.g. Mohit, Faith, 지민..."
+                  className="chat-input"
+                  style={{ marginBottom: '12px', color: '#1e293b', textAlign: 'center', fontSize: '18px', fontWeight: 700 }}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  maxLength={20}
+                  aria-label="Enter your name"
+                  onKeyDown={(e) => e.key === 'Enter' && handleNameSubmit()}
+                  autoFocus
+                />
+
+                <AnimatePresence>
+                  {nameError && (
+                    <motion.p
+                      style={{ color: '#ef4444', fontSize: '13px', textAlign: 'center', marginBottom: '12px', fontWeight: 600 }}
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      ⚠️ {nameError}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+
+                <button
+                  id="submit-name-btn"
+                  onClick={handleNameSubmit}
+                  disabled={!nameInput.trim()}
+                  className="btn-accent"
+                  style={{ width: '100%', padding: '14px', fontSize: '16px', borderRadius: '16px' }}
+                >
+                  Let's Go! 🐼
+                </button>
+              </motion.div>
+            )}
+
+            {/* ── STEP 2: JOIN mode ──────────────────────────────────── */}
+            {step === 'join' && (
               <motion.div
                 key="join"
                 initial={{ opacity: 0, x: -20 }}
@@ -222,7 +329,33 @@ const LandingPage = () => {
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ duration: 0.2 }}
               >
-                <p style={{ textAlign: 'center', fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '16px' }}>
+                {/* Name badge at top */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    background: 'var(--color-panda-bg)', borderRadius: '999px',
+                    padding: '6px 14px',
+                  }}>
+                    <span style={{ fontSize: '16px' }}>🐼</span>
+                    <span style={{ fontWeight: 800, color: '#1e293b', fontSize: '14px' }}>{userName}</span>
+                  </div>
+                  <button
+                    onClick={() => setStep('name')}
+                    style={{
+                      fontSize: '12px', color: '#94a3b8', background: 'none',
+                      border: 'none', cursor: 'pointer', fontFamily: "'Nunito', sans-serif",
+                      fontWeight: 600,
+                    }}
+                  >
+                    ✏️ Change
+                  </button>
+                </div>
+
+                <p style={{
+                  textAlign: 'center', fontSize: '11px', fontWeight: 700,
+                  color: '#94a3b8', letterSpacing: '0.1em', textTransform: 'uppercase',
+                  marginBottom: '16px',
+                }}>
                   Enter Room Code
                 </p>
                 <input
@@ -266,8 +399,8 @@ const LandingPage = () => {
               </motion.div>
             )}
 
-            {/* CREATED mode */}
-            {mode === 'created' && (
+            {/* ── STEP 3: CREATED mode ───────────────────────────────── */}
+            {step === 'created' && (
               <motion.div
                 key="created"
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -278,7 +411,6 @@ const LandingPage = () => {
                 <p style={{ fontWeight: 700, color: '#334155', marginBottom: '4px' }}>Room Created!</p>
                 <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '16px' }}>Share this code with your friend:</p>
 
-                {/* Code display */}
                 <div
                   style={{
                     background: 'var(--color-panda-bg)',
@@ -300,16 +432,9 @@ const LandingPage = () => {
                     onClick={handleCopyCode}
                     id="copy-code-btn"
                     style={{
-                      flex: 1,
-                      padding: '12px',
-                      borderRadius: '16px',
-                      fontWeight: 700,
-                      border: '2px solid #e2e8f0',
-                      background: 'white',
-                      color: '#475569',
-                      fontSize: '14px',
-                      cursor: 'pointer',
-                      fontFamily: "'Nunito', sans-serif",
+                      flex: 1, padding: '12px', borderRadius: '16px', fontWeight: 700,
+                      border: '2px solid #e2e8f0', background: 'white', color: '#475569',
+                      fontSize: '14px', cursor: 'pointer', fontFamily: "'Nunito', sans-serif",
                     }}
                   >
                     {copied ? '✅ Copied!' : '📋 Copy Code'}
@@ -325,7 +450,7 @@ const LandingPage = () => {
                 </div>
 
                 <button
-                  onClick={() => { setMode('join'); setCreatedCode(''); setPandaExpression('idle'); }}
+                  onClick={() => { setStep('join'); setCreatedCode(''); setPandaExpression('idle'); }}
                   style={{ color: '#94a3b8', fontSize: '13px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Nunito', sans-serif" }}
                 >
                   ← Back
@@ -336,7 +461,7 @@ const LandingPage = () => {
         </motion.div>
 
         {/* Create room link */}
-        {mode === 'join' && (
+        {step === 'join' && (
           <motion.div variants={itemVariants} style={{ textAlign: 'center' }}>
             <button
               id="create-room-btn"
@@ -344,12 +469,9 @@ const LandingPage = () => {
               disabled={isLoading}
               style={{
                 color: 'var(--color-accent)',
-                fontWeight: 700,
-                fontSize: '14px',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: "'Nunito', sans-serif",
+                fontWeight: 700, fontSize: '14px',
+                background: 'none', border: 'none',
+                cursor: 'pointer', fontFamily: "'Nunito', sans-serif",
               }}
             >
               New here? Generate a code →
